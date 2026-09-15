@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+}
+
+/* Notion's iframe becomes the viewport */
+#viewport {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/*
+   CARD WRAPPER
+
+   Keeps a 2:1 aspect ratio (matching the weather card) and
+   scales to fit the viewport without ever cropping.
+   container-type lets children use cqw units, which are
+   percentages of THIS element's own box.
+*/
+#card-wrapper {
+    width: min(100%, 200vh);
+    aspect-ratio: 2 / 1;
+    container-type: inline-size;
+}
+
+/* ==============================
+   GREETING CARD
+================================ */
+
+.greeting-card {
+    width: 100%;
+    height: 100%;
+
+    background: #EAF1EE;
+
+    border-radius: 5cqw;
+
+    padding: 5cqh 6.3cqw;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    color: #26312F;
+
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.greeting-line {
+    font-size: 4cqw;
+    line-height: 5cqw;
+
+    color: #26312F;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    margin-bottom: 1.3cqw;
+}
+
+.wave {
+    display: inline-block;
+    margin-left: 0.3cqw;
+}
+
+.time {
+    font-size: 12.7cqw;
+    line-height: 11.7cqw;
+
+    font-weight: 600;
+
+    letter-spacing: -0.4cqw;
+
+    white-space: nowrap;
+}
+</style>
+</head>
+
+<body>
+
+<div id="viewport">
+
+    <div id="card-wrapper">
+
+        <div class="greeting-card">
+
+            <div class="greeting-line" id="greeting">
+                Good afternoon, <span class="wave">👋</span>
+            </div>
+
+            <div class="time" id="time">
+                --:--
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* ==================================================
+   GREETING + TIME
+
+   Timezone is detected automatically from the viewer's
+   device (the standard browser/OS timezone), and the
+   greeting is based on the local hour at that timezone.
+================================================== */
+
+function greetingForHour(hour) {
+
+    if (hour >= 5 && hour < 12) {
+        return "Good morning";
+    }
+
+    if (hour >= 12 && hour < 17) {
+        return "Good afternoon";
+    }
+
+    if (hour >= 17 && hour < 21) {
+        return "Good evening";
+    }
+
+    return "Good evening";
+
+}
+
+
+function updateGreeting() {
+
+    const now = new Date();
+
+    const hour = now.getHours();
+
+    const greetingText =
+        greetingForHour(hour);
+
+
+    document.getElementById(
+        "greeting"
+    ).innerHTML =
+        `${greetingText}, <span class="wave">👋</span>`;
+
+
+    const timeText =
+        now.toLocaleTimeString(
+            "en-US",
+            {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true
+            }
+        );
+
+
+    document.getElementById(
+        "time"
+    ).textContent = timeText;
+
+}
+
+
+/* ==================================================
+   START
+================================================== */
+
+updateGreeting();
+
+
+/* Refresh every 10 seconds - cheap and keeps the
+   clock and greeting accurate without needless work */
+
+setInterval(
+    updateGreeting,
+    10 * 1000
+);
+
+</script>
+
+</body>
+</html>
