@@ -19,7 +19,6 @@ body {
     background: transparent;
 }
 
-/* Notion's iframe becomes the viewport */
 #viewport {
     width: 100%;
     height: 100%;
@@ -28,14 +27,6 @@ body {
     justify-content: center;
 }
 
-/*
-   CARD WRAPPER
-
-   Keeps a 2:1 aspect ratio (matching the weather card) and
-   scales to fit the viewport without ever cropping.
-   container-type lets children use cqw units, which are
-   percentages of THIS element's own box.
-*/
 #card-wrapper {
     width: min(100%, 200vh);
     aspect-ratio: 2 / 1;
@@ -68,6 +59,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    gap: 2.5cqw;
 }
 
 .greeting-line {
@@ -79,8 +71,6 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-
-    margin-bottom: 1.3cqw;
 }
 
 .wave {
@@ -88,15 +78,163 @@ body {
     margin-left: 0.3cqw;
 }
 
-.time {
-    font-size: 12.7cqw;
-    line-height: 11.7cqw;
+/* ==============================
+   CLOCK ROW (flip clock + AM/PM + offset)
+================================ */
 
-    font-weight: 600;
+.clock-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 2cqw;
+}
 
-    letter-spacing: -0.4cqw;
+.flip-clock {
+    display: flex;
+    align-items: center;
+    gap: 1cqw;
+}
 
+.flip-group {
+    display: flex;
+    gap: 0.6cqw;
+}
+
+.flip-colon {
+    font-size: 8cqw;
+    font-weight: 700;
+    color: #26312F;
+    line-height: 15cqw;
+    padding: 0 0.2cqw;
+}
+
+.flip-digit {
+    position: relative;
+    width: 8cqw;
+    height: 15cqw;
+    font-size: 9cqw;
+    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    perspective: 40cqw;
+}
+
+.flip-digit .card-half {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    background: #26312F;
+    color: #FFFFFF;
+    display: flex;
+    justify-content: center;
+}
+
+.flip-digit .card-half span {
+    display: block;
+    line-height: 15cqw;
+}
+
+.flip-digit .top {
+    top: 0;
+    align-items: flex-end;
+    border-radius: 1.2cqw 1.2cqw 0 0;
+}
+
+.flip-digit .bottom {
+    bottom: 0;
+    align-items: flex-start;
+    border-radius: 0 0 1.2cqw 1.2cqw;
+}
+
+.flip-digit .top span,
+.flip-digit .bottom span {
+    transform: translateY(-3.75cqw);
+}
+
+.flip-digit .flap {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    background: #26312F;
+    color: #FFFFFF;
+    display: flex;
+    justify-content: center;
+    backface-visibility: hidden;
+    z-index: 5;
+}
+
+.flip-digit .flap span {
+    display: block;
+    line-height: 15cqw;
+}
+
+.flip-digit .flap.top-flap {
+    top: 0;
+    align-items: flex-end;
+    border-radius: 1.2cqw 1.2cqw 0 0;
+    transform-origin: bottom;
+}
+
+.flip-digit .flap.top-flap span {
+    transform: translateY(-3.75cqw);
+}
+
+.flip-digit .flap.bottom-flap {
+    bottom: 0;
+    align-items: flex-start;
+    border-radius: 0 0 1.2cqw 1.2cqw;
+    transform-origin: top;
+}
+
+.flip-digit .flap.bottom-flap span {
+    transform: translateY(-3.75cqw);
+}
+
+/* Hairline between top and bottom halves, like a real split-flap */
+.flip-digit::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 0.3cqw;
+    background: rgba(0, 0, 0, 0.25);
+    transform: translateY(-0.15cqw);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.clock-tags {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8cqw;
+    padding-top: 0.5cqw;
+}
+
+.clock-tag {
+    background: #26312F;
+    color: #FFFFFF;
+    font-size: 2.6cqw;
+    font-weight: 700;
+    padding: 0.6cqw 1.1cqw;
+    border-radius: 1cqw;
+    text-align: center;
     white-space: nowrap;
+}
+
+/* ==============================
+   DATE LINE
+================================ */
+
+.date-line {
+    font-size: 3cqw;
+    line-height: 3.8cqw;
+    color: #66736F;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 </style>
 </head>
@@ -113,8 +251,21 @@ body {
                 Good afternoon, <span class="wave">👋</span>
             </div>
 
-            <div class="time" id="time">
-                --:--
+            <div class="clock-row">
+
+                <div class="flip-clock" id="flip-clock">
+                    <!-- flip digits are built by JS -->
+                </div>
+
+                <div class="clock-tags">
+                    <div class="clock-tag" id="utc-offset">+00</div>
+                    <div class="clock-tag" id="ampm">--</div>
+                </div>
+
+            </div>
+
+            <div class="date-line" id="date-line">
+                Loading date...
             </div>
 
         </div>
@@ -127,13 +278,157 @@ body {
 <script>
 
 /* ==================================================
-   GREETING + TIME
+   BUILD FLIP CLOCK DOM
 
-   Timezone is detected from the viewer's IP address
-   (like the weather widget does for location), NOT from
-   the device's OS clock setting - so it reflects where
-   the connection is actually coming from, including
-   through a VPN.
+   Six flip digits (hour tens, hour units, minute tens,
+   minute units, second tens, second units) with colons
+   between each pair.
+================================================== */
+
+const flipClockEl =
+    document.getElementById("flip-clock");
+
+
+function makeFlipDigit(id) {
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className = "flip-digit";
+    wrapper.id = id;
+
+    wrapper.innerHTML = `
+        <div class="card-half top"><span>0</span></div>
+        <div class="card-half bottom"><span>0</span></div>
+        <div class="flap top-flap"><span>0</span></div>
+        <div class="flap bottom-flap"><span>0</span></div>
+    `;
+
+    return wrapper;
+
+}
+
+
+function makeColon() {
+
+    const colon =
+        document.createElement("div");
+
+    colon.className = "flip-colon";
+    colon.textContent = ":";
+
+    return colon;
+
+}
+
+
+function makeGroup(id1, id2) {
+
+    const group =
+        document.createElement("div");
+
+    group.className = "flip-group";
+
+    group.appendChild(makeFlipDigit(id1));
+    group.appendChild(makeFlipDigit(id2));
+
+    return group;
+
+}
+
+
+flipClockEl.appendChild(makeGroup("h1", "h2"));
+flipClockEl.appendChild(makeColon());
+flipClockEl.appendChild(makeGroup("m1", "m2"));
+flipClockEl.appendChild(makeColon());
+flipClockEl.appendChild(makeGroup("s1", "s2"));
+
+
+/* ==================================================
+   FLIP ANIMATION
+
+   Updates a single digit tile, animating a flip only
+   when the value actually changes.
+================================================== */
+
+const digitState = {};
+
+
+function setDigit(id, newValue) {
+
+    const el =
+        document.getElementById(id);
+
+    if (!el) {
+        return;
+    }
+
+    const oldValue =
+        digitState[id];
+
+    if (oldValue === newValue) {
+        return;
+    }
+
+    digitState[id] = newValue;
+
+
+    const topEl =
+        el.querySelector(".top:not(.flap)");
+
+    const bottomEl =
+        el.querySelector(".bottom:not(.flap)");
+
+    const topFlap =
+        el.querySelector(".top-flap");
+
+    const bottomFlap =
+        el.querySelector(".bottom-flap");
+
+
+    /* Static top updates immediately to the new value -
+       it's hidden behind the top flap until the flap
+       rotates away. */
+
+    topEl.querySelector("span").textContent = newValue;
+    bottomEl.querySelector("span").textContent = newValue;
+
+
+    /* Reset the flaps with no transition, positioned to
+       start the animation from scratch. */
+
+    topFlap.style.transition = "none";
+    bottomFlap.style.transition = "none";
+
+    topFlap.querySelector("span").textContent =
+        oldValue === undefined ? newValue : oldValue;
+
+    bottomFlap.querySelector("span").textContent = newValue;
+
+    topFlap.style.transform = "rotateX(0deg)";
+    bottomFlap.style.transform = "rotateX(90deg)";
+
+
+    /* Force reflow so the reset above is applied before
+       we start the animated transition. */
+
+    void topFlap.offsetHeight;
+
+
+    topFlap.style.transition =
+        "transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1)";
+
+    bottomFlap.style.transition =
+        "transform 0.35s cubic-bezier(0.4, 0.0, 0.2, 1) 0.15s";
+
+    topFlap.style.transform = "rotateX(-90deg)";
+    bottomFlap.style.transform = "rotateX(0deg)";
+
+}
+
+
+/* ==================================================
+   TIMEZONE DETECTION (IP-based, same as weather widget)
 ================================================== */
 
 let currentTimeZone = null;
@@ -171,9 +466,6 @@ async function detectTimeZone() {
 
         console.error(error);
 
-        /* Fall back to the device's own timezone
-           if the IP lookup fails */
-
         currentTimeZone =
             Intl.DateTimeFormat()
                 .resolvedOptions()
@@ -199,6 +491,53 @@ function greetingForHour(hour) {
 }
 
 
+function getUtcOffsetLabel(date, timeZone) {
+
+    const parts =
+        new Intl.DateTimeFormat(
+            "en-US",
+            {
+                timeZone: timeZone,
+                timeZoneName: "shortOffset"
+            }
+        ).formatToParts(date);
+
+
+    const tzPart =
+        parts.find(
+            (part) => part.type === "timeZoneName"
+        );
+
+
+    if (!tzPart) {
+        return "+00";
+    }
+
+    /* tzPart.value looks like "GMT+1" or "GMT-5" or "GMT" */
+
+    const match =
+        tzPart.value.match(/GMT([+-]\d{1,2})?/);
+
+
+    if (!match || !match[1]) {
+        return "+00";
+    }
+
+    const sign =
+        match[1].startsWith("-") ? "-" : "+";
+
+    const hours =
+        Math.abs(parseInt(match[1], 10));
+
+    return `${sign}${String(hours).padStart(2, "0")}`;
+
+}
+
+
+/* ==================================================
+   MAIN UPDATE LOOP
+================================================== */
+
 function updateClock() {
 
     if (!currentTimeZone) {
@@ -208,7 +547,7 @@ function updateClock() {
     const now = new Date();
 
 
-    const hour =
+    const hour24 =
         parseInt(
             new Intl.DateTimeFormat(
                 "en-US",
@@ -222,31 +561,90 @@ function updateClock() {
         );
 
 
-    const greetingText =
-        greetingForHour(hour);
+    const timeParts =
+        new Intl.DateTimeFormat(
+            "en-US",
+            {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+                timeZone: currentTimeZone
+            }
+        ).formatToParts(now);
+
+
+    const getPart =
+        (type) =>
+            timeParts.find(
+                (part) => part.type === type
+            ).value;
+
+
+    const hour12 =
+        getPart("hour").padStart(2, "0");
+
+    const minute =
+        getPart("minute").padStart(2, "0");
+
+    const second =
+        getPart("second").padStart(2, "0");
+
+    const dayPeriod =
+        getPart("dayPeriod").toUpperCase();
+
+
+    setDigit("h1", hour12[0]);
+    setDigit("h2", hour12[1]);
+    setDigit("m1", minute[0]);
+    setDigit("m2", minute[1]);
+    setDigit("s1", second[0]);
+    setDigit("s2", second[1]);
+
+
+    document.getElementById(
+        "ampm"
+    ).textContent = dayPeriod;
+
+
+    document.getElementById(
+        "utc-offset"
+    ).textContent =
+        getUtcOffsetLabel(now, currentTimeZone);
 
 
     document.getElementById(
         "greeting"
     ).innerHTML =
-        `${greetingText}, <span class="wave">👋</span>`;
+        `${greetingForHour(hour24)}, <span class="wave">👋</span>`;
 
 
-    const timeText =
-        now.toLocaleTimeString(
+    const weekday =
+        new Intl.DateTimeFormat(
             "en-US",
             {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
+                weekday: "long",
                 timeZone: currentTimeZone
             }
-        );
+        ).format(now);
+
+
+    const fullDate =
+        new Intl.DateTimeFormat(
+            "en-US",
+            {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+                timeZone: currentTimeZone
+            }
+        ).format(now);
 
 
     document.getElementById(
-        "time"
-    ).textContent = timeText;
+        "date-line"
+    ).textContent =
+        `${weekday} | ${fullDate}`;
 
 }
 
@@ -267,16 +665,15 @@ async function init() {
 init();
 
 
-/* Update the displayed clock every 10 seconds */
+/* Tick every second so the flip clock updates live */
 
 setInterval(
     updateClock,
-    10 * 1000
+    1000
 );
 
 
-/* Re-check the IP-based timezone every 10 minutes,
-   in case the connection location changes */
+/* Re-check the IP-based timezone every 10 minutes */
 
 setInterval(
     detectTimeZone,
